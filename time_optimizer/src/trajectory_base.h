@@ -11,7 +11,7 @@ protected:
 
     Eigen::MatrixXd coeff; // coefficients of the piecewise trajectory
     Eigen::VectorXd time;  // time durations of the piecewise trajectory
-    int poly_num1D;
+    int poly_num1D;        // polynomial order+1
 
 public: 
 
