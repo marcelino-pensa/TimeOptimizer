@@ -18,7 +18,7 @@ public:
         for ( int dim = 0; dim < 3; dim++ )
         {
             Eigen::VectorXd poly1d = (coeff.row(k) ).segment( dim * poly_num1D, poly_num1D );
-            Eigen::VectorXd t = VectorXd::Zero( poly_num1D );
+            Eigen::VectorXd t = Eigen::VectorXd::Zero( poly_num1D );
             
             for(int j = 0; j < poly_num1D; j ++)
                 if(j==0)
@@ -39,7 +39,7 @@ public:
         for ( int dim = 0; dim < 3; dim++ )
         {
             Eigen::VectorXd poly1d = (coeff.row(k)).segment( dim * poly_num1D, poly_num1D );
-            Eigen::VectorXd t = VectorXd::Zero( poly_num1D );
+            Eigen::VectorXd t = Eigen::VectorXd::Zero( poly_num1D );
 
             for(int j = 0; j < poly_num1D; j ++)
                 if( j==0 || j==1 )
