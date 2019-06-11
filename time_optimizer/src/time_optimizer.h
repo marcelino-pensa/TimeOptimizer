@@ -27,7 +27,7 @@ public:
                                     const double & d_s,
                                     const double & rho); 
 
-        Allocator * GetTimeAllcoation() {return time_allocator;}
+        Allocator * GetTimeAllocation() {return time_allocator;}
 };
 
 #endif

@@ -463,7 +463,7 @@ void trajGeneration(Eigen::MatrixXd path)
         cout<<"[TimeOptimizer DEMO] time cunsume in temporal trajectory is: "<<(time_4 - time_3).toSec()<<endl;
         
         // pull out the results in an allocator data structure
-        _time_allocator = time_optimizer.GetTimeAllcoation();
+        _time_allocator = time_optimizer.GetTimeAllocation();
 
         _traj_time_final = _traj_time_start = ros::Time::now();
         for(int i = 0; i < _time_allocator->time.rows(); i++)
