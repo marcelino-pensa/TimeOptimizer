@@ -1,10 +1,12 @@
 #include <iostream>
 #include <string>
-#include "time_optimizer.h"
+#include "time_optimizer_scs.h"
 #include "mosek.h"
 
 using namespace std;    
 using namespace Eigen;
+
+namespace scs_sol {
 
 static void MSKAPI printstr(void *handle, MSKCONST char str[])
 {
@@ -822,3 +824,5 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
 
     return 1;
 }
+
+}  // namespace scs_sol
