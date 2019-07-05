@@ -32,6 +32,8 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     _T          = traj.getT();
     _poly_num1D = traj.getO();
 
+    std::cout << "time segments: " << _T.transpose() << std::endl;
+
     _seg_num    = _P.rows();
     double maxJer_s = maxdAcc * d_s;
 
@@ -67,8 +69,9 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
 
         k_list[k] = K;
         VectorXd s_k(K + 1);
+        double new_ds = duration/K;
         for(int i = 0; i < K + 1; i++) {
-            s_k(i) = i * d_s;
+            s_k(i) = i * new_ds;
         }
 
         s_list.push_back(s_k);

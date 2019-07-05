@@ -5,6 +5,8 @@
 #include <vector>
 #include "timeAllocator.h"
 #include "trajectory_base.h"
+#include "make_sparse.h"
+#include "ros/ros.h"
 
 namespace ecos_sol {
 
