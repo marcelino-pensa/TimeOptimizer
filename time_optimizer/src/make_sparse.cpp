@@ -90,7 +90,7 @@ void make_sparse_ccs(const std::vector<std::vector<int> >& M) {
 }
 
 void make_sparse_crs(const Eigen::MatrixXd &M, std::vector<double> *A,
-                     std::vector<int> *IA, std::vector<int> *JA) {
+                     std::vector<idxint> *IA, std::vector<idxint> *JA) {
     int m = M.rows();
     int n = M.cols();
     IA->push_back(0); // IA matrix has N+1 rows 
@@ -113,7 +113,7 @@ void make_sparse_crs(const Eigen::MatrixXd &M, std::vector<double> *A,
 
 // Generate the three vectors A, IA, JA  
 void make_sparse_ccs(const Eigen::MatrixXd &M, std::vector<double> *A,
-                     std::vector<int> *IA, std::vector<int> *JA) {
+                     std::vector<idxint> *IA, std::vector<idxint> *JA) {
     int m = M.cols();  // n columns
     int n = M.rows();  // n rows
     JA->push_back(0); // JA matrix has N+1 rows 

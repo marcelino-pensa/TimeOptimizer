@@ -5,6 +5,7 @@
 #include <iostream> 
 #include <vector>
 #include <Eigen/Dense>
+#include "glblopts.h"
 
 // Code obtained from:
 // https://www.geeksforgeeks.org/sparse-matrix-representations-set-3-csr/
@@ -28,10 +29,10 @@ void make_sparse_crs(const std::vector<std::vector<int> >& M);
 void make_sparse_ccs(const std::vector<std::vector<int> >& M);
 
 void make_sparse_crs(const Eigen::MatrixXd &M, std::vector<double> *A,
-                     std::vector<int> *IA, std::vector<int> *JA);
+                     std::vector<idxint> *IA, std::vector<idxint> *JA);
 
 // Generate the three vectors A, IA, JA  
 void make_sparse_ccs(const Eigen::MatrixXd &M, std::vector<double> *A,
-                     std::vector<int> *IA, std::vector<int> *JA);
+                     std::vector<idxint> *IA, std::vector<idxint> *JA);
 
 #endif  // P4_MAKE_SPARSE_H_

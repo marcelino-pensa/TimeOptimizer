@@ -7,6 +7,11 @@
 #include "trajectory_base.h"
 #include "make_sparse.h"
 #include "ros/ros.h"
+#include "ecos.h"
+
+// Erase libraries
+#include <iostream>
+#include <fstream>
 
 namespace ecos_sol {
 
@@ -76,6 +81,23 @@ public:
 
         return ret;
     }
+
+    void index_to_ik(const uint &index, std::string *i_k) const {
+        const uint index_from_start = index - initial_index_;
+        uint i, k;
+
+        // Find the segment to which the  index belongs to
+        uint cur_segment = 0;
+        uint last_segment_index = 0;
+        last_segment_index = last_segment_index + segments[cur_segment].K_;
+        while (index_from_start > last_segment_index) {
+            cur_segment++;
+            last_segment_index = last_segment_index + segments[cur_segment].K_ + 1;
+        }
+        i = cur_segment;
+        k = index - segments[cur_segment].initial_index_;
+        *i_k = std::to_string(i) + "_" + std::to_string(k);
+    }
 };
 
 class variable_set {
@@ -110,34 +132,26 @@ public:
                 return d_.get_index(i, k);
         }
     }
+
+    void index_to_var_ik(const uint &index, std::string *var_ik) const {
+        std::string i_k;
+        if ((index >= a_.initial_index_)  && ((index <= a_.final_index_))) {
+            a_.index_to_ik(index, &i_k);
+            *var_ik = "a_" + i_k;
+        } else if ((index >= b_.initial_index_)  && ((index <= b_.final_index_))) {
+            b_.index_to_ik(index, &i_k);
+            *var_ik = "b_" + i_k;
+        } else if ((index >= c_.initial_index_)  && ((index <= c_.final_index_))) {
+            c_.index_to_ik(index, &i_k);
+            *var_ik = "c_" + i_k;
+        } else if ((index >= d_.initial_index_)  && ((index <= d_.final_index_))) {
+            d_.index_to_ik(index, &i_k);
+            *var_ik = "d_" + i_k;
+        } else {
+            std::cout << "Index out of bounds!" << std::endl;
+        }
+    }
 };
-
-// class variable_set_xyz {
-//  public:
-//     variable_set x_, y_, z_;
-//     uint final_index_;
-//     uint n_variables_;
-//     variable_set_xyz (const uint &m, const std::vector<uint> &K) {
-//         x_ = variable_set(0, m, K);
-//         y_ = variable_set(x_.final_index_+1, m, K);
-//         z_ = variable_set(y_.final_index_+1, m, K);
-//         final_index_ = z_.final_index_;
-//         n_variables_ = final_index_ + 1;
-//     }
-
-//     // Get index for i-th segment, k-th entry on x, y, or z (similar to definitions in paper)
-//     uint get_index (const var_direction &var_xyz, const var_names &var_name,
-//                     const uint i, const uint k) {
-//         switch (var_xyz) {
-//             case var_direction::x:
-//                 return x_.get_index(var_name, i, k);
-//             case var_direction::y:
-//                 return y_.get_index(var_name, i, k);
-//             case var_direction::z:
-//                 return z_.get_index(var_name, i, k);
-//         }
-//     }
-// };
 
 class MinimumTimeOptimizer {
 private:
@@ -158,6 +172,25 @@ public:
                                     const double & maxdAcc,
                                     const double & d_s,
                                     const double &rho); 
+
+    void vector_to_string(const std::vector<idxint> &vec, const std::string &type,
+                      const std::string &var_name, std::string *out);
+    void vector_to_string(const std::vector<double> &vec, const std::string &type,
+                      const std::string &var_name, std::string *out);
+    void vector_to_string(const Eigen::VectorXd &vec, const std::string &type,
+                      const std::string &var_name, std::string *out);
+    void save_matrices_to_file (
+        const uint &n_variables, const uint &size_G, const uint &n_eq,
+        const uint &n_orthants, const uint &n_soc, const std::vector<idxint> &soc_size,
+        const std::vector<double> &sG, const std::vector<idxint> &JG, const std::vector<idxint> &IG,
+        const std::vector<double> &sA, const std::vector<idxint> &JA, const std::vector<idxint> &IA,
+        const Eigen::VectorXd &c, const Eigen::VectorXd &h, const Eigen::VectorXd &b);
+    void save_socp_constraints_to_files (
+        const Eigen::VectorXd &c, const Eigen::MatrixXd &A,
+        const Eigen::VectorXd &b, const Eigen::MatrixXd &G,
+        const Eigen::VectorXd &h, const uint &n_orthants,
+        const std::vector<idxint> &soc_size,
+        const ecos_sol::variable_set &var_set);
 
         Allocator * GetTimeAllocation() {return time_allocator;}
 };

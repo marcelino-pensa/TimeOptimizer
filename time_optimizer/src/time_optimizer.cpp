@@ -802,6 +802,7 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
         for(int i = 0; i < K + 1; i++) {
             if(i <  K) {
                 time_allocator->a(k, i) = a_k(i);
+                // std::cout << "(" << k << ", " << i << ") = " << a_k[i] << std::endl;
 
                 if( b_k(i) <= 0.0 || b_k(i+1) <= 0.0 )
                     T += 0.0;
