@@ -478,6 +478,7 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
 
                 aval[0] = pow(f(i), 2);                
                 asub[0] = idx_bias + num_a[k] + p;
+
                 r = MSK_putarow(task, row_idx, nzi, asub, aval);    
                 //cout<<"row_idx: "<<row_idx<<endl;
                 row_idx ++;
@@ -552,6 +553,7 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
 
                 aval[3] = - f_2(i);
                 aval[4] = - h_2(i) / 2.0;
+
 
                 asub[0] = idx_bias + p;
                 asub[1] = idx_bias + num_a[k] + p;
@@ -802,7 +804,7 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
         for(int i = 0; i < K + 1; i++) {
             if(i <  K) {
                 time_allocator->a(k, i) = a_k(i);
-                // std::cout << "(" << k << ", " << i << ") = " << a_k[i] << std::endl;
+                // std::cout << "(" << k << ", " << i << ") = " << b_k[i] << std::endl;
 
                 if( b_k(i) <= 0.0 || b_k(i+1) <= 0.0 )
                     T += 0.0;

@@ -1,5 +1,7 @@
 
-#include <make_sparse.h> 
+#include <make_sparse.h>
+
+namespace sparse {
 
 // Utility Function to print a Matrix 
 void printMatrix(const std::vector<std::vector<int> >& M) {
@@ -117,7 +119,7 @@ void make_sparse_ccs(const Eigen::MatrixXd &M, std::vector<double> *A,
     int m = M.cols();  // n columns
     int n = M.rows();  // n rows
     JA->push_back(0); // JA matrix has N+1 rows 
-    int NNZ = 0; 
+    int NNZ = 0;
   
     for (uint i = 0; i < m; i++) {
         for (uint j = 0; j < n; j++) {
@@ -136,3 +138,5 @@ void make_sparse_ccs(const Eigen::MatrixXd &M, std::vector<double> *A,
     // printVector(*IA, (char*)"IA = ");
     // printVector(*JA, (char*)"JA = ");
 }
+
+}  // namespace sparse

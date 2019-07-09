@@ -17,7 +17,7 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     /* objective is to generate motion as fast as possible within the physical limitaion (vel, acc and jerk). */
     _P          = traj.getP();
     _T          = traj.getT();
-    _poly_num1D = traj.getO();
+    // _poly_num1D = traj.getO();
     double maxJer_s = maxdAcc * d_s;
 
     uint n_segments  = _P.rows();
@@ -76,15 +76,17 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     // uint size_G = 3*n_rot_cones + 3*n_b2c + n_b_positive + n_vel_bounds +
     //               n_acc_bounds + n_bcs_acc;
     uint n_eq   = n_vel_continuity + n_b2a;
-    std::cout << "Number of inequalities: " << n_ineq << std::endl;
-    std::cout << "Number of equalities: "   <<   n_eq << std::endl;
-    std::cout << "Number of variables: "    << n_variables << std::endl;
+    // std::cout << "Number of inequalities: " << n_ineq << std::endl;
+    // std::cout << "Number of equalities: "   <<   n_eq << std::endl;
+    // std::cout << "Number of variables: "    << n_variables << std::endl;
 
     Eigen::VectorXd c = Eigen::VectorXd::Zero(n_variables);
-    Eigen::MatrixXd G = Eigen::MatrixXd::Zero(size_G, n_variables);
+    // Eigen::MatrixXd G = Eigen::MatrixXd::Zero(size_G, n_variables);
     Eigen::VectorXd h = Eigen::VectorXd::Zero(size_G);
-    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(n_eq, n_variables);
+    // Eigen::MatrixXd A = Eigen::MatrixXd::Zero(n_eq, n_variables);
     Eigen::VectorXd b = Eigen::VectorXd::Zero(n_eq);
+    sparse::sp_matrix G_sparse(n_variables);
+    sparse::sp_matrix A_sparse(n_variables);
 
     // Current index in the matrix G
     uint cur_G_index = 0;
@@ -112,7 +114,11 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
         // std::cout << "maxk b: " << max_K << std::endl;
         for (uint j = 0; j <= max_K; j++) {
             const uint bk_index = var_set.get_index(var_names::b, i, j);
-            G(cur_G_index, bk_index) = -1;
+            std::vector<sparse::col_val> col_values;
+            col_values.push_back(sparse::col_val(bk_index, -1));
+            G_sparse.add_row(col_values);
+
+            // G(cur_G_index, bk_index) = -1;
             h(cur_G_index) = 0;
             cur_G_index++;
             n_orthants++;
@@ -125,7 +131,6 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     const double max_vel_sqr = maxVel*maxVel;
     for (uint i = 0; i <= m; i++) {
         uint max_K = var_set.b_.segments[i].K_;
-        // std::cout << "maxk b: " << max_K << std::endl;
         Eigen::VectorXd time = t_list[i];
         for (uint k = 0; k <= max_K; k++) {
             const uint bk_index = var_set.get_index(var_names::b, i, k);
@@ -133,15 +138,15 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
 
             // Add for x, y, and z directions
             for (uint idx = 0; idx < 3; idx++) {
-                G(cur_G_index, bk_index) = f_prime(idx)*f_prime(idx);
+                std::vector<sparse::col_val> col_values;
+                col_values.push_back(sparse::col_val(bk_index, f_prime(idx)*f_prime(idx)));
+                G_sparse.add_row(col_values);
+
+                // G(cur_G_index, bk_index) = f_prime(idx)*f_prime(idx);
                 h(cur_G_index) = max_vel_sqr;
                 cur_G_index++;
                 n_orthants++;
             }
-
-            // G(cur_G_index, bk_index) = -1;
-            // h(cur_G_index) = 0;
-            // std::cout << var_set.get_index(var_names::b, i, j) << std::endl;
         }
     }
 
@@ -163,9 +168,15 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
 
             // Add for x, y, and z directions (upper bound)
             for (uint idx = 0; idx < 3; idx++) {
-                G(cur_G_index, ak_index) =          f_prime(idx);
-                G(cur_G_index, bk_index) =      0.5*f_prime2(idx);
-                G(cur_G_index, bkplus1_index) = 0.5*f_prime2(idx);
+                std::vector<sparse::col_val> col_values;
+                col_values.push_back(sparse::col_val(ak_index,      f_prime(idx)));
+                col_values.push_back(sparse::col_val(bk_index,      0.5*f_prime2(idx)));
+                col_values.push_back(sparse::col_val(bkplus1_index, 0.5*f_prime2(idx)));
+                G_sparse.add_row(col_values);
+
+                // G(cur_G_index, ak_index) =          f_prime(idx);
+                // G(cur_G_index, bk_index) =      0.5*f_prime2(idx);
+                // G(cur_G_index, bkplus1_index) = 0.5*f_prime2(idx);
                 h(cur_G_index) = maxAcc;
                 cur_G_index++;
                 n_orthants++;
@@ -173,9 +184,15 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
 
             // Add for x, y, and z directions (lower bound)
             for (uint idx = 0; idx < 3; idx++) {
-                G(cur_G_index, ak_index) =          -f_prime(idx);
-                G(cur_G_index, bk_index) =      -0.5*f_prime2(idx);
-                G(cur_G_index, bkplus1_index) = -0.5*f_prime2(idx);
+                std::vector<sparse::col_val> col_values;
+                col_values.push_back(sparse::col_val(ak_index,     -f_prime(idx)));
+                col_values.push_back(sparse::col_val(bk_index,     -0.5*f_prime2(idx)));
+                col_values.push_back(sparse::col_val(bkplus1_index,-0.5*f_prime2(idx)));
+                G_sparse.add_row(col_values);
+
+                // G(cur_G_index, ak_index) =          -f_prime(idx);
+                // G(cur_G_index, bk_index) =      -0.5*f_prime2(idx);
+                // G(cur_G_index, bkplus1_index) = -0.5*f_prime2(idx);
                 h(cur_G_index) = maxAcc;
                 cur_G_index++;
                 n_orthants++;
@@ -204,11 +221,19 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
 
             // Add for x, y, and z directions (upper bound)
             for (uint idx = 0; idx < 3; idx++) {
-                G(cur_G_index, ak_index) =           f_prime(idx);
-                G(cur_G_index, akplus1_index) =     -f_plus1_prime(idx);
-                G(cur_G_index, bk_index) =       0.5*f_prime2(idx);
-                G(cur_G_index, bkplus1_index) =  0.5*f_prime2(idx) - 0.5*f_plus1_prime2(idx);
-                G(cur_G_index, bkplus2_index) = -0.5*f_plus1_prime2(idx);
+                std::vector<sparse::col_val> col_values;
+                col_values.push_back(sparse::col_val(ak_index,       f_prime(idx)));
+                col_values.push_back(sparse::col_val(akplus1_index, -f_plus1_prime(idx)));
+                col_values.push_back(sparse::col_val(bk_index,       0.5*f_prime2(idx)));
+                col_values.push_back(sparse::col_val(bkplus1_index,  0.5*f_prime2(idx) - 0.5*f_plus1_prime2(idx)));
+                col_values.push_back(sparse::col_val(bkplus2_index, -0.5*f_plus1_prime2(idx)));
+                G_sparse.add_row(col_values);
+
+                // G(cur_G_index, ak_index) =           f_prime(idx);
+                // G(cur_G_index, akplus1_index) =     -f_plus1_prime(idx);
+                // G(cur_G_index, bk_index) =       0.5*f_prime2(idx);
+                // G(cur_G_index, bkplus1_index) =  0.5*f_prime2(idx) - 0.5*f_plus1_prime2(idx);
+                // G(cur_G_index, bkplus2_index) = -0.5*f_plus1_prime2(idx);
                 h(cur_G_index) = maxJer_s;
                 cur_G_index++;
                 n_orthants++;
@@ -216,11 +241,19 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
 
             // Add for x, y, and z directions (lower bound)
             for (uint idx = 0; idx < 3; idx++) {
-                G(cur_G_index, ak_index) =          -f_prime(idx);
-                G(cur_G_index, akplus1_index) =      f_plus1_prime(idx);
-                G(cur_G_index, bk_index) =      -0.5*f_prime2(idx);
-                G(cur_G_index, bkplus1_index) = -0.5*f_prime2(idx) + 0.5*f_plus1_prime2(idx);
-                G(cur_G_index, bkplus2_index) =  0.5*f_plus1_prime2(idx);
+                std::vector<sparse::col_val> col_values;
+                col_values.push_back(sparse::col_val(ak_index,      -f_prime(idx)));
+                col_values.push_back(sparse::col_val(akplus1_index,  f_plus1_prime(idx)));
+                col_values.push_back(sparse::col_val(bk_index,      -0.5*f_prime2(idx)));
+                col_values.push_back(sparse::col_val(bkplus1_index, -0.5*f_prime2(idx) + 0.5*f_plus1_prime2(idx)));
+                col_values.push_back(sparse::col_val(bkplus2_index,  0.5*f_plus1_prime2(idx)));
+                G_sparse.add_row(col_values);
+
+                // G(cur_G_index, ak_index) =          -f_prime(idx);
+                // G(cur_G_index, akplus1_index) =      f_plus1_prime(idx);
+                // G(cur_G_index, bk_index) =      -0.5*f_prime2(idx);
+                // G(cur_G_index, bkplus1_index) = -0.5*f_prime2(idx) + 0.5*f_plus1_prime2(idx);
+                // G(cur_G_index, bkplus2_index) =  0.5*f_plus1_prime2(idx);
                 h(cur_G_index) = maxJer_s;
                 cur_G_index++;
                 n_orthants++;
@@ -236,8 +269,8 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
         const double eval_time2 = time(time.size()-1) - half_ds;
         const Eigen::Vector3d f_prime = traj.getVel(i, eval_time);
         const Eigen::Vector3d f_prime2 = traj.getAcc(i, eval_time);
-        const Eigen::Vector3d f_minus1_prime = traj.getVel(i, eval_time2);
-        const Eigen::Vector3d f_minus1_prime2 = traj.getAcc(i, eval_time2);
+        const Eigen::Vector3d f_minus1_prime = traj.getVel(i-1, eval_time2);
+        const Eigen::Vector3d f_minus1_prime2 = traj.getAcc(i-1, eval_time2);
         
         const uint a_iminus1_kminus1_index = var_set.get_index(var_names::a, i-1, max_Ka);
         const uint a_i_0_index = var_set.get_index(var_names::a, i, 0);
@@ -248,12 +281,21 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
 
         // Add for x, y, and z directions (upper bound)
         for (uint idx = 0; idx < 3; idx++) {
-            G(cur_G_index, a_iminus1_kminus1_index) =-f_minus1_prime(idx);
-            G(cur_G_index, a_i_0_index) =             f_prime(idx);
-            G(cur_G_index, b_iminus1_kminus1_index) =-0.5*f_minus1_prime2(idx);
-            G(cur_G_index, b_iminus1_k_index) =      -0.5*f_minus1_prime2(idx);
-            G(cur_G_index, b_i_0_index) =             0.5*f_prime2(idx);
-            G(cur_G_index, b_i_1_index) =             0.5*f_prime2(idx);
+            std::vector<sparse::col_val> col_values;
+            col_values.push_back(sparse::col_val(a_iminus1_kminus1_index,-f_minus1_prime(idx)));
+            col_values.push_back(sparse::col_val(a_i_0_index,             f_prime(idx)));
+            col_values.push_back(sparse::col_val(b_iminus1_kminus1_index,-0.5*f_minus1_prime2(idx)));
+            col_values.push_back(sparse::col_val(b_iminus1_k_index,      -0.5*f_minus1_prime2(idx)));
+            col_values.push_back(sparse::col_val(b_i_0_index,             0.5*f_prime2(idx)));
+            col_values.push_back(sparse::col_val(b_i_1_index,             0.5*f_prime2(idx)));
+            G_sparse.add_row(col_values);
+
+            // G(cur_G_index, a_iminus1_kminus1_index) =-f_minus1_prime(idx);
+            // G(cur_G_index, a_i_0_index) =             f_prime(idx);
+            // G(cur_G_index, b_iminus1_kminus1_index) =-0.5*f_minus1_prime2(idx);
+            // G(cur_G_index, b_iminus1_k_index) =      -0.5*f_minus1_prime2(idx);
+            // G(cur_G_index, b_i_0_index) =             0.5*f_prime2(idx);
+            // G(cur_G_index, b_i_1_index) =             0.5*f_prime2(idx);
             h(cur_G_index) = maxJer_s;
             cur_G_index++;
             n_orthants++;
@@ -261,12 +303,21 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
 
         // Add for x, y, and z directions (lower bound)
         for (uint idx = 0; idx < 3; idx++) {
-            G(cur_G_index, a_iminus1_kminus1_index) = f_minus1_prime(idx);
-            G(cur_G_index, a_i_0_index) =            -f_prime(idx);
-            G(cur_G_index, b_iminus1_kminus1_index) = 0.5*f_minus1_prime2(idx);
-            G(cur_G_index, b_iminus1_k_index) =       0.5*f_minus1_prime2(idx);
-            G(cur_G_index, b_i_0_index) =            -0.5*f_prime2(idx);
-            G(cur_G_index, b_i_1_index) =            -0.5*f_prime2(idx);
+            std::vector<sparse::col_val> col_values;
+            col_values.push_back(sparse::col_val(a_iminus1_kminus1_index, f_minus1_prime(idx)));
+            col_values.push_back(sparse::col_val(a_i_0_index,            -f_prime(idx)));
+            col_values.push_back(sparse::col_val(b_iminus1_kminus1_index, 0.5*f_minus1_prime2(idx)));
+            col_values.push_back(sparse::col_val(b_iminus1_k_index,       0.5*f_minus1_prime2(idx)));
+            col_values.push_back(sparse::col_val(b_i_0_index,            -0.5*f_prime2(idx)));
+            col_values.push_back(sparse::col_val(b_i_1_index,            -0.5*f_prime2(idx)));
+            G_sparse.add_row(col_values);
+
+            // G(cur_G_index, a_iminus1_kminus1_index) = f_minus1_prime(idx);
+            // G(cur_G_index, a_i_0_index) =            -f_prime(idx);
+            // G(cur_G_index, b_iminus1_kminus1_index) = 0.5*f_minus1_prime2(idx);
+            // G(cur_G_index, b_iminus1_k_index) =       0.5*f_minus1_prime2(idx);
+            // G(cur_G_index, b_i_0_index) =            -0.5*f_prime2(idx);
+            // G(cur_G_index, b_i_1_index) =            -0.5*f_prime2(idx);
             h(cur_G_index) = maxJer_s;
             cur_G_index++;
             n_orthants++;
@@ -284,46 +335,70 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     const double final_time = last_time[last_time.size()-1];
     const Eigen::Vector3d f_prime_init  = traj.getVel(0, new_ds);
     const Eigen::Vector3d f_prime2_init = traj.getAcc(0, new_ds);
-    const Eigen::Vector3d f_prime_final  = traj.getVel(0, final_time - new_ds);
-    const Eigen::Vector3d f_prime2_final = traj.getAcc(0, final_time - new_ds);
+    const Eigen::Vector3d f_prime_final  = traj.getVel(m, final_time - new_ds);
+    const Eigen::Vector3d f_prime2_final = traj.getAcc(m, final_time - new_ds);
     const double init_acc = 0, final_acc = 0;
 
     // Initial boundary conditions for acceleration (upper bound)
     for (uint idx = 0; idx < 3; idx++) {
-        G(cur_G_index, a0_index) = f_prime_init(idx);
-        G(cur_G_index, b0_index) = 0.5*f_prime2_init(idx);
-        G(cur_G_index, b1_index) = 0.5*f_prime2_init(idx);
-        h(cur_G_index) = maxdAcc + init_acc;
+        std::vector<sparse::col_val> col_values;
+        col_values.push_back(sparse::col_val(a0_index,     f_prime_init(idx)));
+        col_values.push_back(sparse::col_val(b0_index, 0.5*f_prime2_init(idx)));
+        col_values.push_back(sparse::col_val(b1_index, 0.5*f_prime2_init(idx)));
+        G_sparse.add_row(col_values);
+
+        // G(cur_G_index, a0_index) = f_prime_init(idx);
+        // G(cur_G_index, b0_index) = 0.5*f_prime2_init(idx);
+        // G(cur_G_index, b1_index) = 0.5*f_prime2_init(idx);
+        h(cur_G_index) = 0.01 + init_acc;
         cur_G_index++;
         n_orthants++;
     }
 
     // Initial boundary conditions for acceleration (lower bound)
     for (uint idx = 0; idx < 3; idx++) {
-        G(cur_G_index, a0_index) = -f_prime_init(idx);
-        G(cur_G_index, b0_index) = -0.5*f_prime2_init(idx);
-        G(cur_G_index, b1_index) = -0.5*f_prime2_init(idx);
-        h(cur_G_index) = maxdAcc - init_acc;
+        std::vector<sparse::col_val> col_values;
+        col_values.push_back(sparse::col_val(a0_index,     -f_prime_init(idx)));
+        col_values.push_back(sparse::col_val(b0_index, -0.5*f_prime2_init(idx)));
+        col_values.push_back(sparse::col_val(b1_index, -0.5*f_prime2_init(idx)));
+        G_sparse.add_row(col_values);
+
+        // G(cur_G_index, a0_index) = -f_prime_init(idx);
+        // G(cur_G_index, b0_index) = -0.5*f_prime2_init(idx);
+        // G(cur_G_index, b1_index) = -0.5*f_prime2_init(idx);
+        h(cur_G_index) = 0.01 - init_acc;
         cur_G_index++;
         n_orthants++;
     }
 
     // Final boundary conditions for acceleration (upper bound)
     for (uint idx = 0; idx < 3; idx++) {
-        G(cur_G_index, last_a_index) =   f_prime_final(idx);
-        G(cur_G_index, b4last_b_index) = 0.5*f_prime2_final(idx);
-        G(cur_G_index, last_b_index) =   0.5*f_prime2_final(idx);
-        h(cur_G_index) = maxdAcc + final_acc;
+        std::vector<sparse::col_val> col_values;
+        col_values.push_back(sparse::col_val(last_a_index,       f_prime_final(idx)));
+        col_values.push_back(sparse::col_val(b4last_b_index, 0.5*f_prime2_final(idx)));
+        col_values.push_back(sparse::col_val(last_b_index,   0.5*f_prime2_final(idx)));
+        G_sparse.add_row(col_values);
+
+        // G(cur_G_index, last_a_index) =   f_prime_final(idx);
+        // G(cur_G_index, b4last_b_index) = 0.5*f_prime2_final(idx);
+        // G(cur_G_index, last_b_index) =   0.5*f_prime2_final(idx);
+        h(cur_G_index) = 0.01 + final_acc;
         cur_G_index++;
         n_orthants++;
     }
 
     // Final boundary conditions for acceleration (lower bound)
     for (uint idx = 0; idx < 3; idx++) {
-        G(cur_G_index, last_a_index) =   -f_prime_final(idx);
-        G(cur_G_index, b4last_b_index) = -0.5*f_prime2_final(idx);
-        G(cur_G_index, last_b_index) =   -0.5*f_prime2_final(idx);
-        h(cur_G_index) = maxdAcc - final_acc;
+        std::vector<sparse::col_val> col_values;
+        col_values.push_back(sparse::col_val(last_a_index,       -f_prime_final(idx)));
+        col_values.push_back(sparse::col_val(b4last_b_index, -0.5*f_prime2_final(idx)));
+        col_values.push_back(sparse::col_val(last_b_index,   -0.5*f_prime2_final(idx)));
+        G_sparse.add_row(col_values);
+
+        // G(cur_G_index, last_a_index) =   -f_prime_final(idx);
+        // G(cur_G_index, b4last_b_index) = -0.5*f_prime2_final(idx);
+        // G(cur_G_index, last_b_index) =   -0.5*f_prime2_final(idx);
+        h(cur_G_index) = 0.01 - final_acc;
         cur_G_index++;
         n_orthants++;
     }
@@ -338,16 +413,28 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     for (uint i = 0; i <= m; i++) {
         uint max_Kd = var_set.d_.segments[i].K_;
         for (uint k = 0; k <= max_Kd; k++) {
+            std::vector<sparse::col_val> col_values0, col_values1, col_values2;
             const uint dk_index = var_set.get_index(var_names::d, i, k);
             const uint ck_index = var_set.get_index(var_names::c, i, k);
             const uint ckplus1_index = ck_index + 1;
 
-            G(cur_G_index + 0, ck_index) =     -1;
-            G(cur_G_index + 0, ckplus1_index) =-1;
-            G(cur_G_index + 0, dk_index) =     -1;
-            G(cur_G_index + 2, ck_index) =      1;
-            G(cur_G_index + 2, ckplus1_index) = 1;
-            G(cur_G_index + 2, dk_index) =     -1;
+            col_values0.push_back(sparse::col_val(ck_index,     -1));
+            col_values0.push_back(sparse::col_val(ckplus1_index,-1));
+            col_values0.push_back(sparse::col_val(dk_index,     -1));
+            // col_values1 has an empty row
+            col_values2.push_back(sparse::col_val(ck_index,      1));
+            col_values2.push_back(sparse::col_val(ckplus1_index, 1));
+            col_values2.push_back(sparse::col_val(dk_index,     -1));
+            G_sparse.add_row(col_values0);
+            G_sparse.add_row(col_values1);
+            G_sparse.add_row(col_values2);
+
+            // G(cur_G_index + 0, ck_index) =     -1;
+            // G(cur_G_index + 0, ckplus1_index) =-1;
+            // G(cur_G_index + 0, dk_index) =     -1;
+            // G(cur_G_index + 2, ck_index) =      1;
+            // G(cur_G_index + 2, ckplus1_index) = 1;
+            // G(cur_G_index + 2, dk_index) =     -1;
             h(cur_G_index + 0) = 0;
             h(cur_G_index + 1) = 2;
             h(cur_G_index + 2) = 0;
@@ -361,15 +448,26 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     for (uint i = 0; i <= m; i++) {
         uint max_Kb = var_set.b_.segments[i].K_;
         for (uint k = 0; k <= max_Kb; k++) {
+            std::vector<sparse::col_val> col_values0, col_values1, col_values2;
             const uint bk_index = var_set.get_index(var_names::b, i, k);
             const uint ck_index = var_set.get_index(var_names::c, i, k);
 
-            G(cur_G_index + 0, bk_index) =-1;
-            G(cur_G_index + 0, ck_index) = 0;
-            G(cur_G_index + 1, bk_index) =-1;
-            G(cur_G_index + 1, ck_index) = 0;
-            G(cur_G_index + 2, bk_index) = 0;
-            G(cur_G_index + 2, ck_index) =-2;
+            col_values0.push_back(sparse::col_val(bk_index, -1));
+            col_values0.push_back(sparse::col_val(ck_index,  0));
+            col_values1.push_back(sparse::col_val(bk_index, -1));
+            col_values1.push_back(sparse::col_val(ck_index,  0));
+            col_values2.push_back(sparse::col_val(bk_index,  0));
+            col_values2.push_back(sparse::col_val(ck_index, -2));
+            G_sparse.add_row(col_values0);
+            G_sparse.add_row(col_values1);
+            G_sparse.add_row(col_values2);
+
+            // G(cur_G_index + 0, bk_index) =-1;
+            // G(cur_G_index + 0, ck_index) = 0;
+            // G(cur_G_index + 1, bk_index) =-1;
+            // G(cur_G_index + 1, ck_index) = 0;
+            // G(cur_G_index + 2, bk_index) = 0;
+            // G(cur_G_index + 2, ck_index) =-2;
             h(cur_G_index + 0) =  1;
             h(cur_G_index + 1) = -1;
             h(cur_G_index + 2) =  0;
@@ -384,11 +482,15 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     // ------------------------------------------------------------------
     // Velocity continuity between every two segments
     for (uint i = 0; i < m; i++) {
+        std::vector<sparse::col_val> col_values;
         const uint max_K = var_set.b_.segments[i].K_;
         const uint b_i_K_index = var_set.get_index(var_names::b, i, max_K);
         const uint b_iplus1_0_index = var_set.get_index(var_names::b, i+1, 0);
-        A(cur_A_index, b_i_K_index) = 1;
-        A(cur_A_index, b_iplus1_0_index) = -1;
+        col_values.push_back(sparse::col_val(b_i_K_index,       1));
+        col_values.push_back(sparse::col_val(b_iplus1_0_index, -1));
+        A_sparse.add_row(col_values);
+        // A(cur_A_index, b_i_K_index) = 1;
+        // A(cur_A_index, b_iplus1_0_index) = -1;
         b(cur_A_index) = 0;
         cur_A_index++;
     }
@@ -398,25 +500,31 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     for (uint i = 0; i <= m; i++) {
         uint max_Ka = var_set.a_.segments[i].K_;
         for (uint k = 0; k <= max_Ka; k++) {
+            std::vector<sparse::col_val> col_values;
             const uint ak_index = var_set.get_index(var_names::a, i, k);
             const uint bk_index = var_set.get_index(var_names::b, i, k);
             const uint bk1_index = bk_index + 1;
-            A(cur_A_index, ak_index) = -2*new_ds;
-            A(cur_A_index, bk_index) = -1;
-            A(cur_A_index, bk1_index) = 1;
+            col_values.push_back(sparse::col_val(ak_index, -2*new_ds));
+            col_values.push_back(sparse::col_val(bk_index, -1));
+            col_values.push_back(sparse::col_val(bk1_index, 1));
+            A_sparse.add_row(col_values);
+            // A(cur_A_index, ak_index) = -2*new_ds;
+            // A(cur_A_index, bk_index) = -1;
+            // A(cur_A_index, bk1_index) = 1;
             b(cur_A_index) = 0;
             cur_A_index++;
         }
     }
 
-    std::cout << "added inequalities: " << n_soc+n_orthants << std::endl;
-    std::cout << "added equalities: "   << cur_A_index      << std::endl;
+    // std::cout << "added inequalities: " << n_soc+n_orthants << std::endl;
+    // std::cout << "added equalities: "   << cur_A_index      << std::endl;
 
     ros::Time t0 = ros::Time::now();
     std::vector<double> sG, sA;
     std::vector<idxint> IG, JG, IA, JA;
-    make_sparse_ccs(G, &sG, &IG, &JG);
-    make_sparse_ccs(A, &sA, &IA, &JA);
+    G_sparse.to_ccs(&sG, &IG, &JG);
+    A_sparse.to_ccs(&sA, &IA, &JA);
+
     ros::Time t1 = ros::Time::now();
     std::cout << "time to make sparse: " << (t1 - t0).toSec() << std::endl;
 
@@ -437,17 +545,21 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     //     A(cur_A_index, init_b_index) = 1;
     // }
 
+
+    // ------------------------------------------------------------------
+    // Debug functions --------------------------------------------------
+    // ------------------------------------------------------------------
     // Print matrices
     // save_matrices_to_file (n_variables, size_G, n_eq, n_orthants, n_soc,
     //     soc_size, sG, JG, IG, sA, JA, IA, c, h, b);
 
     // Print SOCP problem to files (easy to read)
-    save_socp_constraints_to_files (c, A, b, G, h, n_orthants, soc_size, var_set);
+    // save_socp_constraints_to_files (c, A, b, G, h, n_orthants, soc_size, var_set);
 
     
     // ------------------------------------------------------------------
     // Set ECOS ---------------------------------------------------------
-    // // ------------------------------------------------------------------
+    // // ---------------------------------------------------------------
     pwork *mywork;
     idxint exitflag;
     uint n_exp_cones = 0;
@@ -460,6 +572,21 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     mywork = ECOS_setup(n_variables, size_G, n_eq, n_orthants, n_soc, 
                         soc_size.data(), n_exp_cones, Gx, Gj, Gi, Ax, Aj, Ai,
                         c_ecos, h_ecos, b_ecos);
+    ros::Time t2 = ros::Time::now();
+    std::cout << "Setup time: " << (t2 - t1).toSec() << std::endl;
+
+    mywork->stgs->feastol = 1e-6;
+    mywork->stgs->abstol = 1e-6;
+    mywork->stgs->reltol = 1e-6;
+    mywork->stgs->feastol_inacc = 1e-4;
+    mywork->stgs->abstol_inacc = 1e-4;
+    mywork->stgs->reltol_inacc = 1e-4;
+    mywork->stgs->nitref = 9;
+    mywork->stgs->gamma = 0.99;
+    mywork->stgs->delta = 2e-7;
+    mywork->stgs->eps = 1e-9;
+    mywork->stgs->maxit = 100;
+    mywork->stgs->verbose = 0;
 
 
     std::cout << "setup done" << std::endl;
@@ -469,15 +596,21 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     } else {
         exitflag = ECOS_FATAL;
     }
-    std::cout << "ecos problem is done with return value " << exitflag << std::endl;
+
+    ros::Time t3 = ros::Time::now();
+    std::cout << "Solution time: " << (t3 - t2).toSec() << std::endl;
+
+    if (!check_exit_flag(exitflag)) {
+        ECOS_cleanup(mywork, 0);
+        return 0;
+    }
 
     // Retrieve 'a' and 'b' solutions
     pfloat* sol_X = mywork->x;
 
-    // 'a' and 'b' are vectors of vectors, splitting segments
-    std::vector<std::vector<pfloat>> sol_a, sol_b, sol_c;
+    // Vectors of vectors, splitting segments
+    std::vector<std::vector<pfloat>> sol_a;
     sol_a.resize(n_segments);
-    sol_b.resize(n_segments);
     idxint idx = 0;
     for (uint i = 0; i <= m; i++) {
         const uint max_Ka  = var_set.a_.segments[i].K_;
@@ -489,8 +622,8 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
         }
     }
 
-    // std::cout << "debug: " << *(sol_X + idx) << " " << *(sol_X + var_set.b_.initial_index_) << std::endl;
-
+    std::vector<std::vector<pfloat>> sol_b;
+    sol_b.resize(n_segments);
     idx = var_set.b_.initial_index_;
     // std::cout << "sol b: " << std::endl;
     for (uint i = 0; i <= m; i++) {
@@ -502,8 +635,9 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
             // std::cout << "(" << i << ", " << j << ") = " << sol_b[i][j] << std::endl;
         }
     }
-    std::cout << "returned values for b" << std::endl;
 
+    // std::vector<std::vector<pfloat>> sol_c;
+    // sol_c.resize(n_segments);
     // idx = var_set.c_.initial_index_;
     // for (uint i = 0; i <= m; i++) {
     //     const uint max_Kc  = var_set.c_.segments[i].K_;
@@ -511,49 +645,55 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     //     for (uint j = 0; j <= max_Kc; j++) {
     //         sol_c[i][j] = *(sol_X + idx);
     //         idx++;
-    //         // std::cout << "(" << i << ", " << j << ") = " << sol_b[i][j] << std::endl;
+    //         // std::cout << "(" << i << ", " << j << ") = " << sol_c[i][j] << std::endl;
     //     }
     // }
     // std::cout << "returned values for c" << std::endl;
 
-    // // Check if the rotated cone is being satisfied
-    // for(uint i = 0; i < sol_b.size(); i++) {
-    //     for (uint j = 0; j < sol_b[i].size(); j++) {
-    //         double lhs = pow(sol_b[i][j] + 1, 2);
-    //         double rhs = pow(sol_b[i][j] - 1, 2) + pow(2*sol_c[i][j], 2);
-    //         if (rhs > lhs) {
-    //             std::cout << "(" << i << ", " << j << ") = " << sol_b[i][j] << std::endl;
-    //         }
+    // std::vector<std::vector<pfloat>> sol_d;
+    // sol_d.resize(n_segments);
+    // idx = var_set.d_.initial_index_;
+    // for (uint i = 0; i <= m; i++) {
+    //     const uint max_Kd  = var_set.d_.segments[i].K_;
+    //     sol_d[i].resize(max_Kd + 1);
+    //     for (uint j = 0; j <= max_Kd; j++) {
+    //         sol_d[i][j] = *(sol_X + idx);
+    //         idx++;
+    //         // std::cout << "(" << i << ", " << j << ") = " << sol_d[i][j] << std::endl;
     //     }
     // }
+    // std::cout << "returned values for d" << std::endl;
+
+    // Check if solution is compliant with constraints
+    // check_constraints_compliance (n_variables, n_orthants, n_eq,
+    //     sol_X, sol_a, sol_b, sol_c, sol_d, A, b, G, h);
 
 
     // Stacking the output results
     int max_K = -1;
     for(int i = 0; i < n_segments; i++) {
-        int cur_K = (int)k_list[i];
+        const int cur_K = (int)k_list[i];
         if(cur_K > max_K)
             max_K = cur_K;
     }
 
-    time_allocator = new Allocator(n_segments, d_s, max_K-1, maxVel, maxAcc, maxJer_s);
+    time_allocator = new Allocator(n_segments, new_ds, max_K, maxVel, maxAcc, maxJer_s);
     for(int k = 0; k < n_segments; k++) {
         double T = 0.0;
         int K = (int)k_list[k];
 
         time_allocator->K(k) = K;
         std::vector<pfloat> a_k   = sol_a[k];
-        std::vector<pfloat> b_k   = sol_a[k];
+        std::vector<pfloat> b_k   = sol_b[k];
 
-        for(int i = 0; i < K; i++) {
+        for(int i = 0; i <= K; i++) {
             if(i <  K) {
-                // std::cout << "(" << k << ", " << i << ") = " << a_k[i] << std::endl;
                 time_allocator->a(k, i) = a_k[i];
 
                 if( b_k[i] <= 0.0 || b_k[i+1] <= 0.0 )
                     T += 0.0;
                 else
-                    T += 1.0 * 2 * d_s/(sqrt(b_k[i]) + sqrt(b_k[i+1]));
+                    T += 1.0 * 2 * new_ds/(sqrt(b_k[i]) + sqrt(b_k[i+1]));
                 
                 time_allocator->time(k, i) = T;
                 
@@ -574,6 +714,45 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     ECOS_cleanup(mywork, 0);
 
 
+    return 1;
+}
+
+bool MinimumTimeOptimizer::check_exit_flag (const idxint &exitflag) {
+    switch (exitflag) {
+        case ECOS_OPTIMAL:
+            ROS_INFO("[ECOS] Optimal solution found!");
+            break;
+        case ECOS_PINF:
+            ROS_WARN("[ECOS] Certificate of primal infeasibility found!");
+            return 0;
+        case ECOS_DINF:
+            ROS_WARN("[ECOS] Certificate of dual infeasibility found!");
+            return 0;
+        case ECOS_INACC_OFFSET:
+            ROS_WARN("[ECOS] Optimal solution found subject to reduced tolerances!");
+            break;
+        case 11:
+            ROS_WARN("[ECOS] Certificate of primal infeasibility found subject to reduced tolerances!");
+            return 0;
+        case 12:
+            ROS_WARN("[ECOS] Certificate of dual infeasibility found subject to reduced tolerances!");
+            return 0;
+        case ECOS_MAXIT:
+            ROS_WARN("[ECOS] Maximum number of iterations reached!");
+            return 0;
+        case ECOS_NUMERICS:
+            ROS_WARN("[ECOS] Numerical problems (unreliable search direction)!");
+            return 0;
+        case ECOS_OUTCONE:
+            ROS_WARN("[ECOS] Numerical problems (slacks or multipliers outside cone)!");
+            return 0;
+        case ECOS_SIGINT:
+            ROS_WARN("[ECOS] Interrupted by signal or CTRL-C!");
+            return 0;
+        case ECOS_FATAL:
+            ROS_WARN("[ECOS] Unknown problem in solver!");
+            return 0;
+    }
     return 1;
 }
 
@@ -777,6 +956,65 @@ void MinimumTimeOptimizer::save_socp_constraints_to_files (
             soc_file << "\n";
         }
     }
+}
+
+void MinimumTimeOptimizer::check_constraints_compliance (
+        const uint &n_variables, const uint &n_orthants, 
+        const uint &n_eq, const pfloat *sol_X,
+        const std::vector<std::vector<pfloat>> &sol_a,
+        const std::vector<std::vector<pfloat>> &sol_b,
+        const std::vector<std::vector<pfloat>> &sol_c,
+        const std::vector<std::vector<pfloat>> &sol_d,
+        const Eigen::MatrixXd &A, const Eigen::VectorXd &b,
+        const Eigen::MatrixXd &G, const Eigen::VectorXd &h) {
+    // Get the whole solution into an Eigen vector
+    Eigen::VectorXd solution(n_variables);
+    for (uint i = 0; i < n_variables; i++) {
+        solution[i] = *(sol_X + i);
+    }
+
+    // Check for equalities
+    for (uint i = 0; i < n_eq; i++) {
+        const double equality = A.row(i)*solution - b(i);
+        if (std::fabs(equality) > 0.00000001) {
+            std::cout << "Equality not satisfied in line" << 
+                         i << ": " << equality << std::endl;
+        }
+    }
+    std::cout << "Checked for equalities!" << std::endl;
+
+    // Check for orthants
+    for (uint i = 0; i < n_orthants; i++) {
+        const double inequality = h(i) - G.row(i)*solution;
+        if (inequality < 0) {
+            std::cout << "Inequality not satisfied in line " << 
+                          i << ": " << inequality << std::endl;
+        }
+    }
+    std::cout << "Checked for inequalities!" << std::endl;
+
+    // Check if the rotated cone is being satisfied
+    for(uint i = 0; i < sol_d.size(); i++) {
+        for (uint j = 0; j < sol_d[i].size(); j++) {
+            double lhs = sol_d[i][j]*(sol_c[i][j] + sol_c[i][j+1]);
+            if (std::fabs(lhs - 1) >= 0.000001) {
+                std::cout << "(" << i << ", " << j << ") = " << lhs << std::endl;
+            }
+        }
+    }
+    std::cout << "Checked for rotated cone!" << std::endl;
+
+    // Check if the soc is being satisfied
+    for(uint i = 0; i < sol_b.size(); i++) {
+        for (uint j = 0; j < sol_b[i].size(); j++) {
+            double lhs = pow(sol_b[i][j] + 1, 2);
+            double rhs = pow(sol_b[i][j] - 1, 2) + pow(2*sol_c[i][j], 2);
+            if (std::fabs(lhs - rhs) >= 0.000001) {
+                std::cout << "(" << i << ", " << j << ") = " << lhs - rhs << std::endl;
+            }
+        }
+    }
+    std::cout << "Checked for second order cone!" << std::endl;
 }
 
 }  // namespace ecos_sol

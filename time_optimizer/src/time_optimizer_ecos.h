@@ -157,9 +157,9 @@ class MinimumTimeOptimizer {
 private:
         Eigen::MatrixXd _P;  // recording the polynomial's coefficients for further evaluation
         Eigen::VectorXd _T;  // recording the polynomial's time durations
-        int _seg_num, _poly_num1D;
+        // int _seg_num, _poly_num1D;
 
-        double _objective;
+        // double _objective;
         Allocator * time_allocator; // for return the final result to high-level planer
 
 public:
@@ -172,6 +172,7 @@ public:
                                     const double & maxdAcc,
                                     const double & d_s,
                                     const double &rho); 
+        bool check_exit_flag (const idxint &exitflag);
 
     void vector_to_string(const std::vector<idxint> &vec, const std::string &type,
                       const std::string &var_name, std::string *out);
@@ -191,6 +192,15 @@ public:
         const Eigen::VectorXd &h, const uint &n_orthants,
         const std::vector<idxint> &soc_size,
         const ecos_sol::variable_set &var_set);
+    void check_constraints_compliance (
+        const uint &n_variables, const uint &n_orthants, 
+        const uint &n_eq, const pfloat *sol_X,
+        const std::vector<std::vector<pfloat>> &sol_a,
+        const std::vector<std::vector<pfloat>> &sol_b,
+        const std::vector<std::vector<pfloat>> &sol_c,
+        const std::vector<std::vector<pfloat>> &sol_d,
+        const Eigen::MatrixXd &A, const Eigen::VectorXd &b,
+        const Eigen::MatrixXd &G, const Eigen::VectorXd &h);
 
         Allocator * GetTimeAllocation() {return time_allocator;}
 };
