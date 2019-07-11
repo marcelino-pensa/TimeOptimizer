@@ -62,8 +62,8 @@ class sp_matrix {
 
     void to_ccs(std::vector<double> *A, std::vector<idxint> *IA, 
                 std::vector<idxint> *JA) {
-        JA->push_back(0); // JA matrix has n_cols+1 entries
-        int NNZ = 0;      // number of non-zero entries, with the first one being zero
+        JA->push_back(0); // JA matrix has n_cols+1 entries, with the first one being zero
+        int NNZ = 0;      // number of non-zero entries
         for (uint i = 0; i < n_cols_; i++) {
             for (uint j = 0; j < Mat_[i].size(); j++) {
                 A->push_back(Mat_[i][j].value_); 
