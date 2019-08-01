@@ -589,7 +589,7 @@ int MinimumTimeOptimizer::MinimumTimeGeneration(
     mywork->stgs->verbose = 0;
 
 
-    std::cout << "setup done" << std::endl;
+    // std::cout << "setup done" << std::endl;
     if( mywork != NULL ){
         /* solve */
         exitflag = ECOS_solve(mywork); 
