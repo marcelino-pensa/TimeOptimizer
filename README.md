@@ -42,7 +42,7 @@ If you use this planning framework for your academic research, please cite our r
   Clone the repository to your catkin workspace and catkin_make. For example:
 ```
   cd ~/catkin_ws/src
-  git clone https://github.com/HKUST-Aerial-Robotics/TimeOptimizer.git
+  git clone https://github.com/marcelino-pensa/TimeOptimizer.git
   cd ../
   catkin_make
   source ~/catkin_ws/devel/setup.bash
